@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  price_collector:
+    image: price_collector
+    ports:
+      - "50000:50000"
+
+  rank_collector:
+    image: rank_collector
+    ports:
+      - "50001:50001"
+
+  currency_checker:
+    image: currency_checker
+    ports:
+      - "8080:8080"
+    environment:
+      - PC_ADDRESS=price_collector:50000
+      - RC_ADDRESS=rank_collector:50001
+    depends_on:
+      - price_collector
+      - rank_collector

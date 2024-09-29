@@ -53,18 +53,15 @@ const (
 var log *zap.Logger
 
 //TODO AW: use docker env to assign these data (ideally, you should have network and the way to extract it by container name...)
-const (
-	pcIP = "100.200.10.1"
-	rcIP = "100.200.10.2"
-	rcPort = 32101
-	pcPort = 32102
+var (
+	pcAddr = os.Getenv("PC_ADDRESS")
+	rcAddr = os.Getenv("RC_ADDRESS")
 )
 
 //TODO AW: you need servers for services, and this handler should have clients to get data
 
 //TODO AW: move this func somewhere
-func getConnection(ip string, port int) *grpc.ClientConn {
-	addr := fmt.Sprintf("%s:%d", ip, port)
+func getConnection(addr string) *grpc.ClientConn {)
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal("can't establish connection to service", zap.String("address", addr), zap.Error(err))
@@ -76,7 +73,7 @@ func main() {
 	log = logger.NewZap(logLevel)
 	defer log.Sync()
 
-	pcConn := getConnection(pcIP, pcPort)
+	pcConn := getConnection(pcAddr)
 	defer pcConn.Close()
 
 	rcConn := getConnection(rcIP, rcPort)
