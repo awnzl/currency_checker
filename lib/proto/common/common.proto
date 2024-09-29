@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package common;
+
+option go_package ="github.com/awnzl/top_currency_checker/lib/proto/common";
+
+//TODO AW: you don't need this message — use map instead
+message Price {
+    string Currency = 1;
+	float Price = 2;
+}

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package rankcollector;
+
+option go_package ="github.com/awnzl/top_currency_checker/lib/proto/rankcollector";
+
+import "lib/proto/common/common.proto";
+
+message RankRequest {
+    int32 limit = 1;
+}
+
+message RankResponse {
+    repeated common.Price Prices = 1; //TODO AW: use map instead!!! map<string, float> my_map = 1;
+}
+
+service RankService {
+    // returns sorted list of currencies based on the highest price
+    rpc GetRanks(RankRequest) returns (RankResponse);
+}
