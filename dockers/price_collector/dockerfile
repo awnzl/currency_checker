@@ -1,12 +1,11 @@
 ARG BUILDER
+FROM ${BUILDER} AS builder
+
 FROM alpine:latest
 WORKDIR /root/
 
-#TODO AW: find where it will be built and copy from there
-COPY --from=${BUILDER} /app_src/bin/price_collector .
+COPY --from=builder /app_src/bin/price_collector .
 
-# Expose port (for your HTTP server)
 EXPOSE 50050
 
-# Run the app
 CMD ["./price_collector"]

@@ -1,11 +1,11 @@
 ARG BUILDER
+FROM ${BUILDER} AS builder
+
 FROM alpine:latest
 WORKDIR /root/
 
-COPY --from=${BUILDER} /app_src/bin/currency_checker .
+COPY --from=builder /app_src/bin/currency_checker .
 
-# Expose port (for your HTTP server)
 EXPOSE 8080
 
-# Run the app
 CMD ["./currency_checker"]
