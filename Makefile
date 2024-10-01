@@ -13,19 +13,20 @@ $(GOBUILD) -o $(GOBIN)/$(1) $(CMD)/$(1)/*.go
 endef
 
 .PHONY: all
-all: grpc build
+all: proto build
 
 .PHONY: build
 build:
 	$(foreach app,$(APPS),$(call BUILD,$(app));)
 
-.PHONY: grpc
-grpc:
+.PHONY: proto
+proto:
 	protoc -I ${GOBASE} \
-	--go_out=paths=source_relative:${PROTO_DIR} \
-	--go-grpc_out=paths=source_relative:${PROTO_DIR} \
+	--go_out=paths=source_relative:${GOBASE} \
+	--go-grpc_out=paths=source_relative:${GOBASE} \
 	${PROTO_DIR}/*/*.proto
 
 .PHONY: clean
 clean:
 	rm -rf $(GOBIN)
+	rm -rf ${PROTO_DIR}/*/*.go
