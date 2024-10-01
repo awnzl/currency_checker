@@ -1,9 +1,9 @@
-See TASK.md
+See [TASK.md](./TASK.md)
 
-# Build
+### Build
 Run *`dockers/build.sh`* to build docker images.  
 
-# Start
+### Start
 Use docker compose to start/down:
 ```
 docker-compose up/down

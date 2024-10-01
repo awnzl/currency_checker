@@ -61,7 +61,7 @@ var (
 //TODO AW: you need servers for services, and this handler should have clients to get data
 
 //TODO AW: move this func somewhere
-func getConnection(addr string) *grpc.ClientConn {)
+func getConnection(addr string) *grpc.ClientConn {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal("can't establish connection to service", zap.String("address", addr), zap.Error(err))
@@ -76,7 +76,7 @@ func main() {
 	pcConn := getConnection(pcAddr)
 	defer pcConn.Close()
 
-	rcConn := getConnection(rcIP, rcPort)
+	rcConn := getConnection(rcAddr)
 	defer rcConn.Close()
 
 	router := mux.NewRouter()

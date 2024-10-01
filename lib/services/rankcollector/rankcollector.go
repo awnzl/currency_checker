@@ -155,58 +155,62 @@ func (s *Server) getPrices(coins []string) ([]Price, error) {
 	coinPrices := []Price{}
 	pricesCh, errCh := s.requestPrices(coins)
 
-	for {
-		select {
-		case prices, ok := <-pricesCh:
-			coinPrices = append(coinPrices, prices...)
-			if !ok {
-				return coinPrices, nil
-			}
-		case err, ok := <-errCh:
-			if ok {
-				return nil, err
-			}
-		}
+	for prices := range pricesCh {
+		coinPrices = append(coinPrices, prices...)
 	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	default:
+	}
+
+	return coinPrices, nil
 }
 
 func (s *Server) requestPrices(coins []string) (<-chan []Price, <-chan error) {
 	// https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,BNB,DOGE,SOL,CCL,ZXC,UKG&tsyms=USD&api_key=INSERT-YOUR-API-KEY-HERE
 	pricesCh := make(chan []Price)
+	errGroup, ctx := errgroup.WithContext(context.Background())
 
 	const fsymsLimit = 60 // found empirically
 	fullPartsNum := len(coins) / fsymsLimit
 	partialPartLimit := len(coins) - fullPartsNum * fsymsLimit
 
-	errGroup, ctx := errgroup.WithContext(context.Background())
-	for idx, i := 0, 0; i <= fullPartsNum; i++ { // this will iterate through all full parts and the last, partial part if exists
-		coinsToRequest := ""
-		for {
-			coinsToRequest += coins[idx]+","
-			idx++
-			partLimitReached := idx % fsymsLimit == 0
-			partialPart := idx > fullPartsNum * fsymsLimit
-			lastPartLimitReached := partialPart && idx % fsymsLimit == partialPartLimit
-			if partLimitReached || lastPartLimitReached {
-				coinsToRequest = strings.TrimRight(coinsToRequest, ",")
-				break
-			}
-		}
-
+	// this will iterate through all full parts and the last, partial part, if exists
+	for idx, i := 0, 0; i <= fullPartsNum; i++ {
 		errGroup.Go(func() error {
+			coinsToRequest := ""
+			for {
+				coinsToRequest += coins[idx]+","
+				idx++
+				partLimitReached := idx % fsymsLimit == 0
+				partialPart := idx > fullPartsNum * fsymsLimit
+				lastPartLimitReached := partialPart && idx % fsymsLimit == partialPartLimit
+				if partLimitReached || lastPartLimitReached {
+					coinsToRequest = strings.TrimRight(coinsToRequest, ",")
+					break
+				}
+			}
+
 			bts, err := s.RequestGet(s.apiURL + "/pricemulti?fsyms=" + coinsToRequest + "&tsyms=USD&api_key=" + s.apiKey)
 			if err != nil {
 				return err
 			}
+
 			prices, err := s.unmarshalPrices(bts)
 			if err != nil {
 				return err
 			}
+
 			select {
 			case pricesCh <- prices:
 			case <-ctx.Done():
 				return ctx.Err()
 			}
+
 			return nil
 		})
 	}
