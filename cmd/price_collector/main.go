@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 
-	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 
 	pc "github.com/awnzl/top_currency_checker/lib/proto/pricecollector"
@@ -19,9 +18,6 @@ var (
 )
 
 func prepareEnvironment() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
 	apiKey = os.Getenv("api_key")
 	apiURL = os.Getenv("api_endpoint")
 }

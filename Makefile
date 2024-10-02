@@ -13,7 +13,10 @@ $(GOBUILD) -o $(GOBIN)/$(1) $(CMD)/$(1)/*.go
 endef
 
 .PHONY: all
-all: proto build
+all: docker
+
+.PHONY: local
+local: proto build
 
 .PHONY: build
 build:
@@ -26,7 +29,12 @@ proto:
 	--go-grpc_out=paths=source_relative:${GOBASE} \
 	${PROTO_DIR}/*/*.proto
 
+.PHONY: docker
+make docker:
+	./dockers/build.sh
+
 .PHONY: clean
 clean:
 	rm -rf $(GOBIN)
 	rm -rf ${PROTO_DIR}/*/*.go
+	rm -rf ./dockers/build.log

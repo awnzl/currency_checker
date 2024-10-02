@@ -52,20 +52,17 @@ const (
 
 var log *zap.Logger
 
-//TODO AW: use docker env to assign these data (ideally, you should have network and the way to extract it by container name...)
 var (
 	pcAddr = os.Getenv("PC_ADDRESS")
 	rcAddr = os.Getenv("RC_ADDRESS")
 )
 
-//TODO AW: you need servers for services, and this handler should have clients to get data
-
-//TODO AW: move this func somewhere
 func getConnection(addr string) *grpc.ClientConn {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal("can't establish connection to service", zap.String("address", addr), zap.Error(err))
 	}
+	log.Info("connected", zap.String("address", addr))
 	return conn
 }
 
@@ -80,7 +77,7 @@ func main() {
 	defer rcConn.Close()
 
 	router := mux.NewRouter()
-	handlers.New(log, rcConn, pcConn).RegisterHandlers(
+	handlers.New(log, pcConn, rcConn).RegisterHandlers(
 		router,
 		middleware.NewLogger(log).Log,
 		middleware.SetContentTypeJSON,
@@ -96,8 +93,9 @@ func main() {
 
 	go func() {
 		log.Info("start listening", zap.String("port", port))
-		if err := srv.ListenAndServe(); err != nil {
-			log.Panic("server error", zap.Error(err))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("server error", zap.Error(err))
+			os.Exit(1)
 		}
 	}()
 
@@ -110,4 +108,5 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error("failure during server shutdown: %w", zap.Error(err))
 	}
+	log.Info("Server stopped...")
 }

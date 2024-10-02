@@ -13,4 +13,4 @@ COPY ../go.sum ./go.sum
 COPY ../Makefile ./Makefile
 
 RUN go mod download && go mod verify
-RUN make all
+RUN make local

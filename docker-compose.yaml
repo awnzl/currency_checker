@@ -4,20 +4,24 @@ services:
   price_collector:
     image: price_collector
     ports:
-      - "50000:50000"
+      - "50050:50050"
+    env_file:
+      - ./cmd/price_collector/.env
 
   rank_collector:
     image: rank_collector
     ports:
-      - "50001:50001"
+      - "50051:50051"
+    env_file:
+      - ./cmd/rank_collector/.env
 
   currency_checker:
     image: currency_checker
     ports:
       - "8080:8080"
     environment:
-      - PC_ADDRESS=price_collector:50000
-      - RC_ADDRESS=rank_collector:50001
+      - PC_ADDRESS=price_collector:50050
+      - RC_ADDRESS=rank_collector:50051
     depends_on:
       - price_collector
       - rank_collector

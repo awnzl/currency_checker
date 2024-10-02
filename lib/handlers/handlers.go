@@ -41,6 +41,8 @@ func (h *Handlers) rootHandler(w http.ResponseWriter, r *http.Request) {
 	if lim := r.URL.Query().Get("limit"); lim != "" {
 		if limit, err = strconv.Atoi(lim); err != nil {
 			http.Error(w, "invalid limit value", http.StatusBadRequest)
+			h.logger.Error(err.Error())
+			h.writeError("system", "invalid limit value", http.StatusBadRequest, w)
 			return
 		}
 	}
@@ -48,14 +50,18 @@ func (h *Handlers) rootHandler(w http.ResponseWriter, r *http.Request) {
 	// first get rank information for the coins up to *limit*
 	rankResp, err := h.rcClient.GetRanks(context.Background(), &rc.RankRequest{Limit: int32(limit)})
 	if err != nil {
-		//TODO AW: process error
+		h.logger.Error(err.Error())
+		h.writeError("system", err.Error(), http.StatusInternalServerError, w)
+		return
 	}
 
 	// then based on the ranked list, get prices for the coins
 	//TODO AW: change PriceRequest — you need to accept coins based on rank from the rank collector, and get prices for them
 	priceResp, err := h.pcClient.GetPrices(context.Background(), &pc.PriceRequest{Limit: int32(limit)})
 	if err != nil {
-		//TODO AW: process error
+		h.logger.Error(err.Error())
+		h.writeError("system", err.Error(), http.StatusInternalServerError, w)
+		return
 	}
 
 	//TODO AW: this map should be inside response instead of list of common.Price
