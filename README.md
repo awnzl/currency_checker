@@ -1,10 +1,11 @@
 See [TASK.md](./TASK.md)
 
 ### Build
-Run *`dockers/build.sh`* to build docker images.  
+Run *`make`* to build docker images.  
+Run *`make local`* to build everything locally.  
 
 ### Start
-Use docker compose to start/down:
+Use docker compose to start/down:  
 ```
 docker-compose up/down
 ```

@@ -32,7 +32,7 @@ func NewZap(level string) *zap.Logger {
 		},
 		Encoding:         "json",
 		EncoderConfig:    newZapEncoderConfig(),
-		OutputPaths:      []string{"stdout"}, //TODO AW: add a log file!
+		OutputPaths:      []string{"stdout"},
 		ErrorOutputPaths: []string{"stdout"},
 	}
 

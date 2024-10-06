@@ -29,8 +29,8 @@ The ranking and price information should always be up-to-date. For example let's
 
 To make the challenge a bit more interesting, we ask you to:
 
-* Use [coinmarketcap API](https://coinmarketcap.com/api/) to get the current USD prices
-* Use [cryptocompare API](https://www.cryptocompare.com/api#-api-data-coinlist-) to get the current ranking information for the top 200 assets.
+* Use [coinmarketcap API](https://coinmarketcap.com/api/) to get the current ranking information for the top 200 assets;
+* Use [cryptocompare API](https://www.cryptocompare.com/api#-api-data-coinlist-) to get the current USD prices.
 
 We know that you can get all the necessary data from either one of those but part of this challenge is to see how you deal with the problem of merging information from multiple data sources.
 

@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/awnzl/top_currency_checker/lib/proto/common"
 	pc "github.com/awnzl/top_currency_checker/lib/proto/pricecollector"
 	rc "github.com/awnzl/top_currency_checker/lib/proto/rankcollector"
 )
@@ -56,23 +55,31 @@ func (h *Handlers) rootHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// then based on the ranked list, get prices for the coins
-	//TODO AW: change PriceRequest — you need to accept coins based on rank from the rank collector, and get prices for them
-	priceResp, err := h.pcClient.GetPrices(context.Background(), &pc.PriceRequest{Limit: int32(limit)})
+	priceResp, err := h.pcClient.GetPrices(context.Background(), &pc.PriceRequest{List: rankResp.List})
 	if err != nil {
 		h.logger.Error(err.Error())
 		h.writeError("system", err.Error(), http.StatusInternalServerError, w)
 		return
 	}
 
-	//TODO AW: this map should be inside response instead of list of common.Price
-	prices := make(map[string]float32, len(priceResp.Prices))
-	for _, p := range priceResp.Prices {
-		prices[p.Currency] = p.Price
+	h.handleResponse(rankResp.List, priceResp.Prices, w)
+}
+
+func (h *Handlers) handleResponse(rankList []string, prices map[string]float64, w http.ResponseWriter) {
+	// Rank, Symbol, Price USD
+	type data struct {
+		Rank int `json:"Rank"`
+		Symbol string `json:"Symbol"`
+		Price float64 `json:"Price USD"`
 	}
 
-	result := make(map[int]common.Price, len(rankResp.Prices))
-	for rank, currency := range rankResp.Prices {
-		result[rank] = common.Price{Currency: currency.Currency, Price: prices[currency.Currency]}
+	var result []data
+	for rank, symbol := range rankList {
+		result = append(result, data{
+			Rank: rank + 1,
+			Symbol: symbol,
+			Price: prices[symbol],
+		})
 	}
 
 	b, err := json.Marshal(result)
@@ -82,9 +89,7 @@ func (h *Handlers) rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.writeResponse(b, w); err != nil {
-		h.logger.Error("response writing error", zap.Error(err))
-	}
+	h.writeResponse(b, w)
 }
 
 func (h *Handlers) writeError(lvl, msg string, status int, w http.ResponseWriter) {
@@ -104,16 +109,13 @@ func (h *Handlers) writeError(lvl, msg string, status int, w http.ResponseWriter
 	}
 
 	if _, err := w.Write(b); err != nil {
-		h.logger.Error("failed to write response", zap.Error(err))
+		h.logger.Error("failed to write error response", zap.Error(err))
 	}
 }
 
-func (h *Handlers) writeResponse(b []byte, w http.ResponseWriter) error {
+func (h *Handlers) writeResponse(b []byte, w http.ResponseWriter) {
 	w.WriteHeader(http.StatusOK)
-
 	if _, err := w.Write(b); err != nil {
-		return err
+		h.logger.Error("failed to write response", zap.Error(err))
 	}
-
-	return nil
 }

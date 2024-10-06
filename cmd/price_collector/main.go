@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log" //TODO AW: use zap?
+	"log"
 	"net"
 	"os"
 

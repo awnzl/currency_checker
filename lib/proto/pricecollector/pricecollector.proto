@@ -4,15 +4,12 @@ package pricecollector;
 
 option go_package ="github.com/awnzl/top_currency_checker/lib/proto/pricecollector";
 
-import "lib/proto/common/common.proto";
-
-//TODO AW: change PriceRequest — you need to accept coins based on rank from the rank collector, and get prices for them
 message PriceRequest {
-    int32 limit = 1;
+    repeated string List = 1;
 }
 
 message PriceResponse {
-    repeated common.Price Prices = 1; //TODO AW: use map instead!!! map<string, float> my_map = 1;
+    map<string, double> Prices = 1;
 }
 
 service PriceService {
