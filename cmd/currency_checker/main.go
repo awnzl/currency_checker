@@ -79,7 +79,7 @@ func main() {
 	router := mux.NewRouter()
 	handlers.New(log, pcConn, rcConn).RegisterHandlers(
 		router,
-		middleware.NewLogger(log).Log,
+		middleware.NewMiddlewareLogger(log).Log,
 		middleware.SetContentTypeJSON,
 	)
 

@@ -10,7 +10,7 @@ type Logger struct {
 	logger *zap.Logger
 }
 
-func NewLogger(log *zap.Logger) *Logger {
+func NewMiddlewareLogger(log *zap.Logger) *Logger {
 	return &Logger{logger: log}
 }
 
