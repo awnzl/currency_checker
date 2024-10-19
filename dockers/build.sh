@@ -36,4 +36,6 @@ build_service "currency_checker" $SCRIPT_DIR/"currency_checker/dockerfile"
 build_service "price_collector" $SCRIPT_DIR/"price_collector/dockerfile"
 build_service "rank_collector" $SCRIPT_DIR/"rank_collector/dockerfile"
 
+docker image rm $builder
+
 echo "All builds completed successfully. See $logfile for the full log."

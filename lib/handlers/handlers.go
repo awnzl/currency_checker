@@ -39,30 +39,35 @@ func (h *Handlers) rootHandler(w http.ResponseWriter, r *http.Request) {
 
 	if lim := r.URL.Query().Get("limit"); lim != "" {
 		if limit, err = strconv.Atoi(lim); err != nil {
-			http.Error(w, "invalid limit value", http.StatusBadRequest)
 			h.logger.Error(err.Error())
 			h.writeError("system", "invalid limit value", http.StatusBadRequest, w)
 			return
 		}
 	}
 
-	// first get rank information for the coins up to *limit*
-	rankResp, err := h.rcClient.GetRanks(context.Background(), &rc.RankRequest{Limit: int32(limit)})
+	// get currencies rank information
+	rankResp, err := h.rcClient.GetRanks(context.Background(), &rc.RankRequest{Limit: int32(limit+50)})
 	if err != nil {
 		h.logger.Error(err.Error())
 		h.writeError("system", err.Error(), http.StatusInternalServerError, w)
 		return
 	}
+	h.logger.Info("rankResp", zap.Any("currencies number", len(rankResp.List)), zap.Any("currencies", rankResp.List))
 
-	// then based on the ranked list, get prices for the coins
+	// get prices for the currencies
 	priceResp, err := h.pcClient.GetPrices(context.Background(), &pc.PriceRequest{List: rankResp.List})
 	if err != nil {
 		h.logger.Error(err.Error())
 		h.writeError("system", err.Error(), http.StatusInternalServerError, w)
 		return
 	}
+	h.logger.Info("priceResp", zap.Any("currencies number", len(priceResp.Prices)), zap.Any("currencies", priceResp.Prices))
 
-	h.handleResponse(rankResp.List, priceResp.Prices, w)
+	list := rankResp.List
+	if len(rankResp.List) > limit {
+		list = rankResp.List[:limit]
+	}
+	h.handleResponse(list, priceResp.Prices, w)
 }
 
 func (h *Handlers) handleResponse(rankList []string, prices map[string]float64, w http.ResponseWriter) {
@@ -104,18 +109,18 @@ func (h *Handlers) writeError(lvl, msg string, status int, w http.ResponseWriter
 		},
 	)
 	if err != nil {
-		h.logger.Error("failed to marshal", zap.Error(err))
+		h.logger.Error("marshal", zap.Error(err))
 		return
 	}
 
 	if _, err := w.Write(b); err != nil {
-		h.logger.Error("failed to write error response", zap.Error(err))
+		h.logger.Error("write error response", zap.Error(err))
 	}
 }
 
 func (h *Handlers) writeResponse(b []byte, w http.ResponseWriter) {
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(b); err != nil {
-		h.logger.Error("failed to write response", zap.Error(err))
+		h.logger.Error("write response", zap.Error(err))
 	}
 }
