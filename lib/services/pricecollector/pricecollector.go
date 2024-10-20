@@ -7,23 +7,27 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	pc "github.com/awnzl/top_currency_checker/lib/proto/pricecollector"
 	"golang.org/x/sync/errgroup"
+
+	pc "github.com/awnzl/top_currency_checker/lib/proto/pricecollector"
 )
 
 type Server struct {
 	pc.PriceServiceServer
 	apiKey string
 	apiURL string
+	log    *log.Logger
 }
 
 func New(apiKey, apiURL string) *Server {
 	return &Server{
 		apiKey: apiKey,
 		apiURL: apiURL,
+		log: log.New(os.Stdout, "PriceCollector: ", log.LstdFlags | log.Lshortfile),
 	}
 }
 
@@ -32,8 +36,8 @@ func (s *Server) GetPrices(ctx context.Context, req *pc.PriceRequest) (*pc.Price
 	now := time.Now()
 	// get prices for the available coins
 	prices, err := s.getPrices(req.List)
-	log.Println("Prices requesting time:", time.Since(now))
-	log.Println("Currencies data len:", len(prices))
+	s.log.Println("Prices requesting time:", time.Since(now))
+	s.log.Println("Currencies data len:", len(prices))
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +47,7 @@ func (s *Server) GetPrices(ctx context.Context, req *pc.PriceRequest) (*pc.Price
 
 func (s *Server) getPrices(coins []string) (map[string]float64, error) {
 	allCoinsPrices := map[string]float64{}
-	pricesCh, erpCh := s.requestPrices(coins)
+	pricesCh, errCh := s.requestPrices(coins)
 
 	for prices := range pricesCh {
 		for coin, price := range prices {
@@ -52,7 +56,7 @@ func (s *Server) getPrices(coins []string) (map[string]float64, error) {
 	}
 
 	select {
-	case err := <-erpCh:
+	case err := <-errCh:
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +75,7 @@ func (s *Server) requestPrices(coins []string) (<-chan map[string]float64, <-cha
 	fullPartsNum := len(coins) / fsymsLimit
 	partialPartLimit := len(coins) - fullPartsNum * fsymsLimit
 
-	// this will iterate through all full parts and the last, partial part, if exists
+	// this will collect coins in all full parts and the last, partial part, if exists
 	for idx, i := 0, 0; i <= fullPartsNum; i++ {
 		coinsToRequest := ""
 		for {
@@ -87,46 +91,44 @@ func (s *Server) requestPrices(coins []string) (<-chan map[string]float64, <-cha
 		}
 
 		errGroup.Go(func() error {
-			bts, err := s.RequestGet(s.apiURL + "/pricemulti?fsyms=" + coinsToRequest + "&tsyms=USD&api_key=" + s.apiKey)
+			var bts []byte
+			var err error
+			bts, err = s.RequestGet(ctx, s.apiURL + "/pricemulti?fsyms=" + coinsToRequest + "&tsyms=USD&api_key=" + s.apiKey)
 			if err != nil {
-				return err
+				return fmt.Errorf("requesting prices: %v", err)
 			}
-
 			prices, err := s.unmarshalPrices(bts)
 			if err != nil {
-				return err
+				return fmt.Errorf("unmarshaling prices: %v", err)
 			}
 
 			select {
 			case pricesCh <- prices:
 			case <-ctx.Done():
-				return ctx.Err()
+				return fmt.Errorf("context done: %v", ctx.Err())
 			}
 
 			return nil
 		})
 	}
 
-	erpCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() {
 		if err := errGroup.Wait(); err != nil {
-			erpCh <- err
+			s.log.Println("errGroup received an error:", err.Error())
+			errCh <- err
 		}
-		close(erpCh)
+		close(errCh)
 		close(pricesCh)
 	}()
 
-	return pricesCh, erpCh
+	return pricesCh, errCh
 }
 
 func (s *Server) unmarshalPrices(bts []byte) (map[string]float64, error) {
 	var errResp struct {
 		Response   string `json:"Response"` // Response status: Success, Error
 		Message    string `json:"Message"` // A message if Response=Error
-		HasWarning bool `json:"HasWarning"`
-		Type       int `json:"Type"`
-		RateLimit  map[string]string `json:"RateLimit"`
-		Data       map[string]json.RawMessage `json:"Data"` // The requested data if Response=Success
 	}
 	// handle error response
 	err := json.Unmarshal(bts, &errResp)
@@ -134,7 +136,7 @@ func (s *Server) unmarshalPrices(bts []byte) (map[string]float64, error) {
 		return nil, err
 	}
 	if errResp.Response == "Error" {
-		return nil, fmt.Errorf("failed to get prices: %v", errResp.Message)
+		return nil, fmt.Errorf("getting prices: %v", errResp.Message)
 	}
 
 	// {"BTC":{"USD":68025.43},"ETH":{"USD":3274.18},"DOGE":{"USD":0.1313}}
@@ -154,8 +156,13 @@ func (s *Server) unmarshalPrices(bts []byte) (map[string]float64, error) {
 	return prices, nil
 }
 
-func (s *Server) RequestGet(uri string) ([]byte, error) {
-	resp, err := http.Get(uri)
+func (s *Server) RequestGet(ctx context.Context, uri string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
 		return nil, err
 	}
