@@ -22,6 +22,7 @@ local: proto build
 build:
 	$(foreach app,$(APPS),$(call BUILD,$(app));)
 
+# generates the gRPC code
 .PHONY: proto
 proto:
 	protoc -I ${GOBASE} \
@@ -29,6 +30,7 @@ proto:
 	--go-grpc_out=paths=source_relative:${GOBASE} \
 	${PROTO_DIR}/*/*.proto
 
+# builds the docker images
 .PHONY: docker
 make docker:
 	./dockers/build.sh

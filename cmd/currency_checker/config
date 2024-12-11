@@ -1,0 +1,2 @@
+request_timeout=3
+rate_limit=30
