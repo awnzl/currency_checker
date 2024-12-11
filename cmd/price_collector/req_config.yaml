@@ -1,0 +1,4 @@
+request:
+  timeout: 5
+  rate_limit: 30
+  retry_num: 5

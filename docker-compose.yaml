@@ -7,6 +7,8 @@ services:
       - "50050:50050"
     env_file:
       - ./cmd/price_collector/.env
+    volumes:
+      - ./cmd/price_collector/req_config.yaml:/root/req_config.yaml
 
   rank_collector:
     image: rank_collector

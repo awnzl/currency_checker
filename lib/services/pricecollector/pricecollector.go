@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,20 +13,33 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	pc "github.com/awnzl/top_currency_checker/lib/proto/pricecollector"
+	"github.com/awnzl/top_currency_checker/lib/requester"
+	"github.com/awnzl/top_currency_checker/lib/requester/config"
 )
+
+type Config struct {
+	APIKey     string
+	APIURL     string
+	FSYMSLimit int
+	ReqConfig  config.Config
+}
 
 type Server struct {
 	pc.PriceServiceServer
-	apiKey string
-	apiURL string
-	log    *log.Logger
+	requester  requester.Requester
+	apiKey     string
+	apiURL     string
+	fsymsLimit int
+	log        *log.Logger
 }
 
-func New(apiKey, apiURL string) *Server {
+func New(conf Config) *Server {
 	return &Server{
-		apiKey: apiKey,
-		apiURL: apiURL,
-		log: log.New(os.Stdout, "PriceCollector: ", log.LstdFlags | log.Lshortfile),
+		requester:  requester.New(conf.ReqConfig),
+		apiKey:     conf.APIKey,
+		apiURL:     conf.APIURL,
+		fsymsLimit: conf.FSYMSLimit,
+		log:        log.New(os.Stdout, "PriceCollector: ", log.LstdFlags | log.Lshortfile),
 	}
 }
 
@@ -70,36 +82,33 @@ func (s *Server) requestPrices(coins []string) (<-chan map[string]float64, <-cha
 	// https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH&tsyms=USD&api_key=INSERT-YOUR-API-KEY-HERE
 	pricesCh := make(chan map[string]float64)
 	errGroup, ctx := errgroup.WithContext(context.Background())
+	fullPartsNum := len(coins) / s.fsymsLimit
 
-	const fsymsLimit = 60 // found empirically
-	fullPartsNum := len(coins) / fsymsLimit
-	partialPartLimit := len(coins) - fullPartsNum * fsymsLimit
-
-	// this will collect coins in all full parts and the last, partial part, if exists
 	for idx, i := 0, 0; i <= fullPartsNum; i++ {
 		coinsToRequest := ""
-		for {
+		for ; idx < len(coins); {
 			coinsToRequest += coins[idx]+","
 			idx++
-			partLimitReached := idx % fsymsLimit == 0
-			partialPart := idx > fullPartsNum * fsymsLimit
-			lastPartLimitReached := partialPart && idx % fsymsLimit == partialPartLimit
-			if partLimitReached || lastPartLimitReached {
+			if idx % s.fsymsLimit == 0 {
 				coinsToRequest = strings.TrimRight(coinsToRequest, ",")
 				break
 			}
+		}
+		if coinsToRequest == "" {
+			continue
 		}
 
 		errGroup.Go(func() error {
 			var bts []byte
 			var err error
-			bts, err = s.RequestGet(ctx, s.apiURL + "/pricemulti?fsyms=" + coinsToRequest + "&tsyms=USD&api_key=" + s.apiKey)
+			uri := s.apiURL + "/pricemulti?fsyms=" + coinsToRequest
+			bts, err = s.RequestGet(ctx, uri + "&tsyms=USD&api_key=" + s.apiKey)
 			if err != nil {
-				return fmt.Errorf("requesting prices: %v", err)
+				return fmt.Errorf("requesting prices: uri: %v, error: %v", uri, err)
 			}
 			prices, err := s.unmarshalPrices(bts)
 			if err != nil {
-				return fmt.Errorf("unmarshaling prices: %v", err)
+				return fmt.Errorf("unmarshaling prices: uri: %v, error: %v", uri, err)
 			}
 
 			select {
@@ -161,12 +170,5 @@ func (s *Server) RequestGet(ctx context.Context, uri string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	return io.ReadAll(resp.Body)
+	return s.requester.GetData(req)
 }

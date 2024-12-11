@@ -57,6 +57,7 @@ var (
 	rcAddr = os.Getenv("RC_ADDRESS")
 )
 
+// connects to the service or exits the program if the connection can't be established
 func getConnection(addr string) *grpc.ClientConn {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
