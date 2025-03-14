@@ -7,16 +7,10 @@ import (
 
 	"google.golang.org/grpc"
 
-	rc "github.com/awnzl/top_currency_checker/lib/proto/rankcollector"
-	rcService "github.com/awnzl/top_currency_checker/lib/services/rankcollector"
+	"github.com/awnzl/top_currency_checker/lib/proto/rankcollector"
+	"github.com/awnzl/top_currency_checker/lib/requester/config"
+	service "github.com/awnzl/top_currency_checker/lib/services/rankcollector"
 )
-
-/*
-https://min-api.cryptocompare.com/data/pricemulti?fsyms=ETH,DASH&tsyms=BTC,USD,EUR&api_key=INSERT-YOUR-API-KEY-HERE
-https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,BNB,DOGE,SOL,CCL,ZXC,UKG&tsyms=USD&api_key=INSERT-YOUR-API-KEY-HERE
-A current ranking information provider.
-
-*/
 
 var (
 	apiKey string
@@ -37,9 +31,14 @@ func main() {
 		log.Fatalf("Failed to listen on: %v\n", err)
 	}
 
+	config.InitConfig("./req_config.yaml")
 	srv := grpc.NewServer()
-	srs := rcService.New(apiKey, apiURL)
-	rc.RegisterRankServiceServer(srv, srs)
+	srs := service.New(service.Config{
+		APIKey:    apiKey,
+		APIURL:    apiURL,
+		ReqConfig: config.GetConfig(),
+	})
+	rankcollector.RegisterRankServiceServer(srv, srs)
 
 	log.Printf("Listening on %s\n", addr)
 	if err := srv.Serve(listener); err != nil {
